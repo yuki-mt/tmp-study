@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <title>タイピングゲーム</title>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
+  <meta charset="UTF-8">
+</head>
+<body>
+  <style>
+#game {
+  text-align: center;
+  font-family: 'Caveat', cursive;
+}
+
+#title {
+  font-size: 28px;
+}
+
+#word {
+  font-size: 24px;
+}
+
+#input {
+  font-size: 18px;
+}
+
+#timer {
+  font-size: 16px;
+  padding: 0.35em 0.5em;
+  color: black;
+}
+
+#correctCount {
+  font-size: 16px;
+  padding: 0.5em 0;/*上下の余白*/
+  border-top: solid 3px #364e96;/*上線*/
+  border-bottom: solid 3px #364e96;/*下線*/
+}
+
+@keyframes shake {
+  0% { transform: translate(1px, 1px) rotate(0deg); }
+  10% { transform: translate(-1px, -2px) rotate(-1deg); }
+  20% { transform: translate(-3px, 0px) rotate(1deg); }
+  30% { transform: translate(3px, 2px) rotate(0deg); }
+  40% { transform: translate(1px, -1px) rotate(1deg); }
+  50% { transform: translate(-1px, 2px) rotate(-1deg); }
+  60% { transform: translate(-3px, 1px) rotate(0deg); }
+  70% { transform: translate(3px, 1px) rotate(-1deg); }
+  80% { transform: translate(-1px, -1px) rotate(1deg); }
+  90% { transform: translate(1px, 2px) rotate(0deg); }
+  100% { transform: translate(1px, -2px) rotate(-1deg); }
+}
+.character {
+  position: absolute;
+  opacity: 0;
+  width: 600px;
+  height: 600px;
+  top: 60%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 3rem;
+  transition: opacity 0.5s ease-out;
+}
+  </style>
+  <div id="game">
+    <h1 id="title">Typing Game</h1>
+    <p id="word"></p>
+    <input type="text" id="input" autofocus>
+    <div id="result"></div>
+    <p id="timer">残り時間: <span id="time">30</span> 秒</p>
+    <p id="correctCount">正解数: <span id="count">0</span></p>
+    <img class="character" src="https://yuki-mt.github.io/tmp-study/character0.png" alt="" />
+    <img class="character" src="https://yuki-mt.github.io/tmp-study/character1.png" alt="" />
+    <img class="character" src="https://yuki-mt.github.io/tmp-study/character2.png" alt="" />
+    <img class="character" src="https://yuki-mt.github.io/tmp-study/character3.png" alt="" />
+    <img class="character" src="https://yuki-mt.github.io/tmp-study/character4.png" alt="" />
+    <img class="character" src="https://yuki-mt.github.io/tmp-study/character5.png" alt="" />
+    <img class="character" src="https://yuki-mt.github.io/tmp-study/character6.png" alt="" />
+    <img class="character" src="https://yuki-mt.github.io/tmp-study/character7.png" alt="" />
+    <img class="character" src="https://yuki-mt.github.io/tmp-study/character8.png" alt="" />
+    <img class="character" src="https://yuki-mt.github.io/tmp-study/character9.png" alt="" />
+  </div>
+<script>
+const wordElement = document.getElementById('word');
+const inputElement = document.getElementById('input');
+const titleElement = document.getElementById('title'); // 追加
+const resultElement = document.getElementById('result');
+
+// 表示する単語の配列
+const words = ['JavaScript', 'HTML', 'CSS', 'Programing'];
+
+// タイマー停止用フラグ（拡張用）
+let timerStopFlag = -1;  // -1の時は動いて1の時は止まる
+
+let wordIndex = 0;
+let startTime;
+let endTime;
+
+
+// ランダムな単語を表示する関数
+  // Start of Selection
+function showWord() {
+  const randomIndex = Math.floor(Math.random() * words.length);
+  wordElement.innerHTML = words[randomIndex];
+  wordIndex = randomIndex;
+  startTime = new Date();
+}
+
+// 追加ここから
+const typeSound = new Howl({
+  src: ['https://yuki-mt.github.io/tmp-study/type.mp3'],
+  volume: 0.2
+});
+const correctSound = new Howl({
+  src: ['https://yuki-mt.github.io/tmp-study/correct.mp3']
+});
+const wrongSound = new Howl({
+  src: ['https://yuki-mt.github.io/tmp-study/wrong.mp3']
+});
+
+function shake() {
+  titleElement.style.animation = 'none';
+  titleElement.offsetHeight; // Trigger reflow
+  titleElement.style.animation = 'shake 0.2s';
+  resultElement.style.animation = 'none';
+  resultElement.offsetHeight; // Trigger reflow
+  resultElement.style.animation = 'shake 0.2s';
+}
+
+function getTypingWord(word, targetWord) {
+  let typedWord = '';
+  // 前方一致している部分のみグレーアウト
+  let matchIndex = 0;
+  while (matchIndex < word.length && word[matchIndex] === targetWord[matchIndex]) {
+    matchIndex++;
+  }
+  typedWord += `<span style="color: #ccc;">${targetWord.slice(0, matchIndex)}</span>`;
+
+  // 残りの文字を通常表示
+  typedWord += `<span>${targetWord.slice(matchIndex)}</span>`;
+  return typedWord;
+}
+
+function showCharacter() {
+  const characterElement = document.querySelector(`.character:nth-of-type(${Math.floor(Math.random() * 10)})`);
+  characterElement.style.opacity = '1';
+  characterElement.style.transition = 'opacity 0.5s ease-out';
+  setTimeout(() => {
+    characterElement.style.opacity = '0';
+  }, 500);
+}
+// 追加ここまで
+
+// 入力された文字と単語を比較する関数
+function checkInput() {
+  const word = inputElement.value;
+
+  // 追加ここから
+  const targetWord = words[wordIndex];
+  wordElement.innerHTML = getTypingWord(word, targetWord);
+  shake();
+  // 追加ここまで
+
+  if (word === targetWord) {
+    // 追加ここから
+    showCharacter();
+    correctSound.play();
+    // 追加ここまで
+
+    endTime = new Date();
+    const elapsedTime = (endTime - startTime) / 1000;
+    resultElement.textContent = `正解！ ${elapsedTime}秒`;
+    showWord();
+    inputElement.value = '';
+    correctCount++;
+    document.getElementById('count').textContent = correctCount;
+  } else {
+    if (!targetWord.startsWith(word)) {
+      wrongSound.play(); // 追加
+      resultElement.textContent = `不正解...`;
+    } else {
+      resultElement.textContent = 'その調子!!';
+      typeSound.play();
+    }
+  }
+}
+
+// 入力イベントリスナー
+inputElement.addEventListener('input', checkInput);
+
+let correctCount = 0; // 正解数を初期化
+let timerId; // タイマーのIDを保存
+
+// ゲームスタート時の処理を追加
+function startGame() {
+  showWord();
+  timerId = setInterval(() => {
+    const timeElement = document.getElementById('time');
+    const time = parseInt(timeElement.textContent);
+    if (time === 0) {
+      clearInterval(timerId);
+      alert('時間切れ！ 正解数は' + correctCount + 'です。');
+    } else if (timerStopFlag === -1) {
+      timeElement.textContent = time - 1;
+    } else {
+      console.log("sleep");
+    }
+  }, 1000);
+}
+
+// ゲーム開始
+startGame();
+</script>
+</body>
+</html>
